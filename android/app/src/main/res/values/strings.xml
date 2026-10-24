@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DriveQuest</string>
+    <string name="title_activity_main">DriveQuest</string>
+    <string name="package_name">com.drivequest.app</string>
+    <string name="custom_url_scheme">com.drivequest.app</string>
+</resources>
