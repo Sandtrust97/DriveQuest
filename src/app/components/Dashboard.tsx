@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
-import { useAppStore } from "../store/useAppStore"; // Importar el store
+import { useAppStore } from "../store/useAppStore";
 import { 
   BookOpen, 
   Car, 
@@ -20,14 +20,22 @@ interface DashboardProps {
 export function Dashboard({ onNavigate }: DashboardProps) {
   const navigate = useNavigate();
 
-  // Conectar con Zustand
+  // Conectar con Zustand (datos y función de logout)
   const userName = useAppStore((state) => state.userName);
+  const logout = useAppStore((state) => state.logout);
   const getOverallProgress = useAppStore((state) => state.getOverallProgress);
   const overallProgress = getOverallProgress();
 
   const handleNavigation = (path: string, screenName: string) => {
     if (onNavigate) onNavigate(screenName);
     navigate(path);
+  };
+
+  // Manejador para cerrar sesión en Supabase y redirigir
+  const handleLogout = async () => {
+    await logout();
+    if (onNavigate) onNavigate("welcome");
+    navigate("/");
   };
 
   return (
@@ -46,7 +54,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => handleNavigation("/", "welcome")}
+            onClick={handleLogout}
             className="text-white hover:bg-white/10"
           >
             <LogOut className="w-5 h-5" />
