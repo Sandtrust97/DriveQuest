@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
+import { useAppStore } from "../store/useAppStore";
 import { 
   ArrowLeft, 
   User, 
@@ -20,11 +21,27 @@ interface ProfileScreenProps {
 export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
   const navigate = useNavigate();
 
+  // Conectar con Zustand para obtener datos reales del usuario y métricas
+  const userName = useAppStore((state) => state.userName);
+  const userEmail = useAppStore((state) => state.userEmail);
+  const getOverallProgress = useAppStore((state) => state.getOverallProgress);
+  const getPassedExamsCount = useAppStore((state) => state.getPassedExamsCount);
+  const logout = useAppStore((state) => state.logout);
+
+  const overallProgress = getOverallProgress();
+  const passedExams = getPassedExamsCount();
+
   const handleNavigation = (path: string, screenName: string) => {
     if (onNavigate) {
       onNavigate(screenName);
     }
     navigate(path);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    if (onNavigate) onNavigate("welcome");
+    navigate("/");
   };
 
   return (
@@ -50,9 +67,9 @@ export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
             <User className="w-10 h-10" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-slate-900">Estudiante DriveQuest</h3>
+            <h3 className="text-xl font-bold text-slate-900">{userName}</h3>
             <p className="text-xs text-slate-500 flex items-center justify-center gap-1 mt-1">
-              <Mail className="w-3.5 h-3.5" /> usuario@drivequest.app
+              <Mail className="w-3.5 h-3.5" /> {userEmail}
             </p>
           </div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold border border-blue-100">
@@ -60,7 +77,7 @@ export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
           </div>
         </div>
 
-        {/* Estadísticas Rápidas */}
+        {/* Estadísticas Rápidas Dinámicas */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-3">
             <div className="p-2.5 bg-amber-50 text-amber-600 rounded-lg shrink-0">
@@ -68,7 +85,7 @@ export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
             </div>
             <div>
               <p className="text-xs text-slate-400 font-medium">Completado</p>
-              <p className="text-base font-bold text-slate-800">45%</p>
+              <p className="text-base font-bold text-slate-800">{overallProgress}%</p>
             </div>
           </div>
 
@@ -78,7 +95,7 @@ export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
             </div>
             <div>
               <p className="text-xs text-slate-400 font-medium">Exámenes</p>
-              <p className="text-base font-bold text-slate-800">2 Aprobados</p>
+              <p className="text-base font-bold text-slate-800">{passedExams} {passedExams === 1 ? "Aprobado" : "Aprobados"}</p>
             </div>
           </div>
         </div>
@@ -112,7 +129,7 @@ export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
         {/* Botón Cerrar Sesión */}
         <div className="pt-2">
           <Button
-            onClick={() => handleNavigation("/", "welcome")}
+            onClick={handleLogout}
             variant="outline"
             className="w-full py-6 border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-xl flex items-center justify-center gap-2 font-semibold"
           >

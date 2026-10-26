@@ -18,13 +18,43 @@ export default function App() {
   useEffect(() => {
     checkSession();
 
-    // Sincronizar automáticamente el estado de Supabase Auth con Zustand
+    // Sincronizar automáticamente el estado de Supabase Auth con Zustand y LocalStorage
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const currentUser = session?.user ?? null;
-      useAppStore.setState({ 
-        user: currentUser,
-        userEmail: currentUser?.email || "usuario@drivequest.app"
-      });
+      
+      if (currentUser) {
+        const name = currentUser.user_metadata?.full_name 
+          || currentUser.email?.split('@')[0] 
+          || "Estudiante DriveQuest";
+
+        // Cargar el progreso guardado para este usuario específico
+        const savedKey = `drivequest_progress_${currentUser.id}`;
+        const savedData = localStorage.getItem(savedKey);
+        const parsed = savedData ? JSON.parse(savedData) : null;
+
+        useAppStore.setState({ 
+          user: currentUser,
+          userName: name,
+          userEmail: currentUser.email || "usuario@drivequest.app",
+          completedModuleIds: parsed?.completedModuleIds || [],
+          completedPracticeIds: parsed?.completedPracticeIds || [],
+          examHistory: parsed?.examHistory || [],
+          studyTimeMinutes: parsed?.studyTimeMinutes || 0,
+          questionsAnsweredCount: parsed?.questionsAnsweredCount || 0
+        });
+      } else {
+        // Limpiar estado si se cierra sesión
+        useAppStore.setState({ 
+          user: null,
+          userName: "Estudiante DriveQuest",
+          userEmail: "usuario@drivequest.app",
+          completedModuleIds: [],
+          completedPracticeIds: [],
+          examHistory: [],
+          studyTimeMinutes: 0,
+          questionsAnsweredCount: 0
+        });
+      }
     });
 
     return () => subscription.unsubscribe();
