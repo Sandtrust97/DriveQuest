@@ -1,9 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../Lib/supabase";
 import { useAppStore } from "../store/useAppStore";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
+import {
+  generateExam,
+  evaluateExam,
+  EXAM_CONFIG,
+  type ExamQuestion,
+  type ExamEvaluation,
+} from "../data/examBank";
 import { 
   ArrowLeft, 
   Clock, 
@@ -11,53 +18,6 @@ import {
   RotateCcw, 
   Award 
 } from "lucide-react";
-
-interface Question {
-  id: number;
-  text: string;
-  options: string[];
-  correctAnswer: number;
-  explanation: string;
-}
-
-const QUESTIONS: Question[] = [
-  {
-    id: 1,
-    text: "¿Qué significa una línea continua amarilla en el centro de la vía?",
-    options: [
-      "Permitido adelantar con precaución.",
-      "Prohibido el adelantamiento en ambos sentidos.",
-      "Carril exclusivo para transporte público.",
-      "Zona de estacionamiento permitido."
-    ],
-    correctAnswer: 1,
-    explanation: "La línea continua amarilla indica la prohibición estricta de adelantar a otros vehículos."
-  },
-  {
-    id: 2,
-    text: "¿Cuál es la prelación en una intersección sin señalizar?",
-    options: [
-      "El vehículo que va a mayor velocidad.",
-      "El vehículo que circula por la derecha.",
-      "El vehículo de mayor tamaño.",
-      "El vehículo que pita primero."
-    ],
-    correctAnswer: 1,
-    explanation: "Según la norma general de tránsito, en cruces no regulados la preferencia la tiene el vehículo que se aproxima por la derecha."
-  },
-  {
-    id: 3,
-    text: "¿Cuál es el límite de velocidad máximo permitido en zonas urbanas residenciales o escolares?",
-    options: [
-      "50 km/h",
-      "60 km/h",
-      "30 km/h",
-      "80 km/h"
-    ],
-    correctAnswer: 2,
-    explanation: "En zonas escolares y residenciales el límite de velocidad se establece en 30 km/h para garantizar la seguridad peatonal."
-  }
-];
 
 interface ExamScreenProps {
   onNavigate?: (screen: string) => void;
@@ -67,11 +27,20 @@ export function ExamScreen({ onNavigate }: ExamScreenProps) {
   const navigate = useNavigate();
 
   const addExamResult = useAppStore((state) => state.addExamResult);
+
+  // Examen generado desde el banco de preguntas (estructura oficial ANSV:
+  // 40 preguntas = 12 de actitudes + 28 de conocimientos en 4 núcleos).
+  const [exam, setExam] = useState<ExamQuestion[]>(() => generateExam());
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const [answers, setAnswers] = useState<(number | null)[]>(Array(QUESTIONS.length).fill(null));
-  const [timeLeft, setTimeLeft] = useState(120); // 2 minutos
+  const [answers, setAnswers] = useState<(number | null)[]>(() =>
+    Array(exam.length).fill(null)
+  );
+  // Temporizador regresivo oficial: 50 minutos.
+  const [timeLeft, setTimeLeft] = useState(EXAM_CONFIG.timeLimitSeconds);
   const [isFinished, setIsFinished] = useState(false);
+  // Garantiza que el resultado se registre una sola vez (envío manual o automático).
+  const resultsSubmittedRef = useRef(false);
 
   // Temporizador del examen
   useEffect(() => {
@@ -81,7 +50,6 @@ export function ExamScreen({ onNavigate }: ExamScreenProps) {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          setIsFinished(true);
           return 0;
         }
         return prev - 1;
@@ -116,33 +84,66 @@ export function ExamScreen({ onNavigate }: ExamScreenProps) {
     }
   };
 
-  // Cálculo de resultados finales
-  const score = answers.reduce((acc: number, current, idx) => {
-    return current === QUESTIONS[idx].correctAnswer ? acc + 1 : acc;
-  }, 0);
+  // Cálculo de resultados: puntajes separados de conocimientos y actitudes.
+  // Regla oficial ANSV: se aprueba únicamente con ≥80% en conocimientos Y
+  // ≥80% en actitudes.
+  const evaluation: ExamEvaluation = useMemo(
+    () => evaluateExam(exam, answers),
+    [exam, answers]
+  );
 
-  const percentage = Math.round((score / QUESTIONS.length) * 100);
-  const isApproved = percentage >= 70;
+  const score = evaluation.totalScore;
+  const percentage = evaluation.percentage;
+  const isApproved = evaluation.passed;
+
+  // Finaliza el examen: envío manual ("Finalizar Examen") o automático (tiempo agotado).
+  const finishExam = () => {
+    if (resultsSubmittedRef.current) return;
+    resultsSubmittedRef.current = true;
+
+    const finalEvaluation = evaluateExam(exam, answers);
+    setIsFinished(true);
+
+    // Guardar localmente en la tienda global (Zustand)
+    addExamResult(finalEvaluation.totalScore, finalEvaluation.totalQuestions, {
+      knowledgeScore: finalEvaluation.knowledgeScore,
+      knowledgeTotal: finalEvaluation.knowledgeTotal,
+      attitudesScore: finalEvaluation.attitudesScore,
+      attitudesTotal: finalEvaluation.attitudesTotal,
+      knowledgePercentage: finalEvaluation.knowledgePercentage,
+      attitudesPercentage: finalEvaluation.attitudesPercentage,
+      passed: finalEvaluation.passed,
+    });
+
+    // Guardar en la nube (Supabase)
+    saveResultToCloud(finalEvaluation.totalScore, finalEvaluation.totalQuestions);
+  };
+
+  // Envío automático al finalizar el tiempo límite (50 minutos).
+  useEffect(() => {
+    if (isFinished || timeLeft > 0) return;
+    finishExam();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft, isFinished]);
 
   const handleNext = () => {
-    if (currentQuestionIndex < QUESTIONS.length - 1) {
+    if (currentQuestionIndex < exam.length - 1) {
       const nextIndex = currentQuestionIndex + 1;
       setCurrentQuestionIndex(nextIndex);
       setSelectedOption(answers[nextIndex]);
     } else {
-      setIsFinished(true);
-      // Guardar localmente en la tienda global (Zustand)
-      addExamResult(score, QUESTIONS.length);
-      // Guardar en la nube (Supabase)
-      saveResultToCloud(score, QUESTIONS.length);
+      finishExam();
     }
   };
 
   const handleRestart = () => {
+    const newExam = generateExam();
+    resultsSubmittedRef.current = false;
+    setExam(newExam);
     setCurrentQuestionIndex(0);
     setSelectedOption(null);
-    setAnswers(Array(QUESTIONS.length).fill(null));
-    setTimeLeft(120);
+    setAnswers(Array(newExam.length).fill(null));
+    setTimeLeft(EXAM_CONFIG.timeLimitSeconds);
     setIsFinished(false);
   };
 
@@ -157,7 +158,7 @@ export function ExamScreen({ onNavigate }: ExamScreenProps) {
     return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
-  const currentQuestion = QUESTIONS[currentQuestionIndex];
+  const currentQuestion = exam[currentQuestionIndex];
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 text-slate-800">
@@ -191,14 +192,22 @@ export function ExamScreen({ onNavigate }: ExamScreenProps) {
             
             <p className="text-sm text-slate-500">
               {isApproved 
-                ? "Has alcanzado el puntaje mínimo requerido para certificar tus conocimientos."
-                : "Necesitas un mínimo del 70% de respuestas correctas para aprobar."}
+                ? "Has alcanzado el puntaje mínimo requerido: 80% o más en conocimientos y en actitudes."
+                : "Necesitas un mínimo del 80% en conocimientos y del 80% en actitudes para aprobar."}
             </p>
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-2 my-6">
               <div className="flex justify-between text-sm font-medium">
                 <span>Puntuación:</span>
-                <span className="font-bold">{score} / {QUESTIONS.length}</span>
+                <span className="font-bold">{score} / {exam.length}</span>
+              </div>
+              <div className="flex justify-between text-sm font-medium">
+                <span>Conocimientos:</span>
+                <span className="font-bold">{evaluation.knowledgeScore} / {evaluation.knowledgeTotal} ({evaluation.knowledgePercentage}%)</span>
+              </div>
+              <div className="flex justify-between text-sm font-medium">
+                <span>Actitudes:</span>
+                <span className="font-bold">{evaluation.attitudesScore} / {evaluation.attitudesTotal} ({evaluation.attitudesPercentage}%)</span>
               </div>
               <Progress value={percentage} className="h-2" />
               <p className="text-xs text-right text-slate-400">{percentage}% Obtenido</p>
@@ -222,10 +231,10 @@ export function ExamScreen({ onNavigate }: ExamScreenProps) {
             {/* Barra de progreso de preguntas */}
             <div className="space-y-2">
               <div className="flex justify-between text-xs text-slate-500 font-medium">
-                <span>Pregunta {currentQuestionIndex + 1} de {QUESTIONS.length}</span>
-                <span>{Math.round(((currentQuestionIndex + 1) / QUESTIONS.length) * 100)}%</span>
+                <span>Pregunta {currentQuestionIndex + 1} de {exam.length}</span>
+                <span>{Math.round(((currentQuestionIndex + 1) / exam.length) * 100)}%</span>
               </div>
-              <Progress value={((currentQuestionIndex + 1) / QUESTIONS.length) * 100} className="h-1.5" />
+              <Progress value={((currentQuestionIndex + 1) / exam.length) * 100} className="h-1.5" />
             </div>
 
             {/* Texto de la pregunta */}
@@ -266,7 +275,7 @@ export function ExamScreen({ onNavigate }: ExamScreenProps) {
               disabled={selectedOption === null}
               className="w-full py-6 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl font-semibold shadow-md"
             >
-              {currentQuestionIndex === QUESTIONS.length - 1 ? "Finalizar Examen" : "Siguiente Pregunta"}
+              {currentQuestionIndex === exam.length - 1 ? "Finalizar Examen" : "Siguiente Pregunta"}
             </Button>
           </div>
         </div>

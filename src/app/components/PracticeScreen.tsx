@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
+import { PRACTICE_CASES } from "../data/practiceCases";
+import { useAppStore } from "../store/useAppStore";
 import { 
   ArrowLeft, 
   CheckCircle2, 
@@ -12,63 +14,13 @@ import {
   ChevronRight
 } from "lucide-react";
 
-interface Exercise {
-  id: number;
-  title: string;
-  scenario: string;
-  options: string[];
-  correctAnswer: number;
-  explanation: string;
-}
-
-const PRACTICAL_EXERCISES: Exercise[] = [
-  {
-    id: 1,
-    title: "Maniobra en Rotonda",
-    scenario: "Te aproximas a una rotonda de dos carriles y vas a tomar la tercera salida. ¿Qué carril debes ocupar para ingresar?",
-    options: [
-      "El carril derecho todo el tiempo.",
-      "El carril izquierdo o interior para incorporarte.",
-      "Cualquiera de los dos, no hay diferencia.",
-      "El carril central pisando la línea divisional."
-    ],
-    correctAnswer: 1,
-    explanation: "Para realizar giros hacia la izquierda o tomar salidas lejanas (como la tercera salida), debes acceder desde el carril interior y desplazarte progresivamente hacia el exterior al momento de salir."
-  },
-  {
-    id: 2,
-    title: "Distancia de Seguridad",
-    scenario: "Circulas a 60 km/h en pavimento seco. ¿Cuál es la regla general recomendada para mantener la distancia de seguimiento con el vehículo de enfrente?",
-    options: [
-      "Regla de los 1 segundo.",
-      "Regla de los 3 segundos.",
-      "1 metro por cada 10 km/h.",
-      "Pegarse lo más posible para agilizar el flujo."
-    ],
-    correctAnswer: 1,
-    explanation: "La regla de los 3 segundos otorga el tiempo mínimo de reacción y frenado ante una desaceleración imprevista del vehículo que precede."
-  },
-  {
-    id: 3,
-    title: "Prioridad ante Peatones",
-    scenario: "Vas a realizar un giro a la derecha en una intersección y un peatón comienza a cruzar por la cebra con semáforo peatonal en verde.",
-    options: [
-      "Pitas para que el peatón apure el paso.",
-      "Pasas rápido antes de que el peatón llegue a tu carril.",
-      "Detienes el vehículo por completo y le cedes el paso al peatón.",
-      "Continuas tu marcha porque los vehículos siempre tienen la vía."
-    ],
-    correctAnswer: 2,
-    explanation: "El peatón tiene prelación absoluta al cruzar por zonas demarcadas o con semáforo peatonal a favor. El conductor debe detenerse por completo."
-  }
-];
-
 interface PracticeScreenProps {
   onNavigate?: (screen: string) => void;
 }
 
 export function PracticeScreen({ onNavigate }: PracticeScreenProps) {
   const navigate = useNavigate();
+  const markPracticeCompleted = useAppStore((state) => state.markPracticeCompleted);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -76,7 +28,7 @@ export function PracticeScreen({ onNavigate }: PracticeScreenProps) {
   const [score, setScore] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
 
-  const currentExercise = PRACTICAL_EXERCISES[currentIndex];
+  const currentCase = PRACTICE_CASES[currentIndex];
 
   const handleSelectOption = (index: number) => {
     if (isAnswered) return;
@@ -86,13 +38,14 @@ export function PracticeScreen({ onNavigate }: PracticeScreenProps) {
   const handleConfirmAnswer = () => {
     if (selectedOption === null) return;
     setIsAnswered(true);
-    if (selectedOption === currentExercise.correctAnswer) {
+    markPracticeCompleted(currentCase.id);
+    if (selectedOption === currentCase.correctOptionIndex) {
       setScore((prev) => prev + 1);
     }
   };
 
   const handleNext = () => {
-    if (currentIndex < PRACTICAL_EXERCISES.length - 1) {
+    if (currentIndex < PRACTICE_CASES.length - 1) {
       setCurrentIndex((prev) => prev + 1);
       setSelectedOption(null);
       setIsAnswered(false);
@@ -113,6 +66,13 @@ export function PracticeScreen({ onNavigate }: PracticeScreenProps) {
     if (onNavigate) onNavigate("dashboard");
     navigate("/dashboard");
   };
+
+  const selectedFeedback =
+    isAnswered && selectedOption !== null
+      ? selectedOption === currentCase.correctOptionIndex
+        ? currentCase.correctFeedback
+        : currentCase.incorrectFeedback[selectedOption]
+      : "";
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 text-slate-800">
@@ -139,7 +99,7 @@ export function PracticeScreen({ onNavigate }: PracticeScreenProps) {
 
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-2 my-6">
               <span className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Aciertos Totales</span>
-              <p className="text-3xl font-extrabold text-slate-900">{score} / {PRACTICAL_EXERCISES.length}</p>
+              <p className="text-3xl font-extrabold text-slate-900">{score} / {PRACTICE_CASES.length}</p>
             </div>
           </div>
 
@@ -160,10 +120,10 @@ export function PracticeScreen({ onNavigate }: PracticeScreenProps) {
             {/* Progreso */}
             <div className="space-y-2">
               <div className="flex justify-between text-xs text-slate-500 font-medium">
-                <span>Caso {currentIndex + 1} de {PRACTICAL_EXERCISES.length}</span>
-                <span>{currentExercise.title}</span>
+                <span>Caso {currentIndex + 1} de {PRACTICE_CASES.length}</span>
+                <span>{currentCase.title}</span>
               </div>
-              <Progress value={((currentIndex + 1) / PRACTICAL_EXERCISES.length) * 100} className="h-1.5" />
+              <Progress value={((currentIndex + 1) / PRACTICE_CASES.length) * 100} className="h-1.5" />
             </div>
 
             {/* Tarjeta del Escenario */}
@@ -172,15 +132,15 @@ export function PracticeScreen({ onNavigate }: PracticeScreenProps) {
                 <HelpCircle className="w-4 h-4" /> Escenario de Manejo
               </div>
               <p className="text-sm font-medium text-slate-800 leading-relaxed">
-                {currentExercise.scenario}
+                {currentCase.scenario}
               </p>
             </div>
 
             {/* Opciones */}
             <div className="space-y-3">
-              {currentExercise.options.map((option, idx) => {
+              {currentCase.options.map((option, idx) => {
                 const isSelected = selectedOption === idx;
-                const isCorrect = idx === currentExercise.correctAnswer;
+                const isCorrect = idx === currentCase.correctOptionIndex;
 
                 let buttonStyles = "border-slate-200 bg-white text-slate-700 hover:border-slate-300";
 
@@ -219,7 +179,7 @@ export function PracticeScreen({ onNavigate }: PracticeScreenProps) {
             {isAnswered && (
               <div className="p-4 bg-slate-100 rounded-xl border border-slate-200 text-xs text-slate-600 space-y-1">
                 <span className="font-bold text-slate-800">Retroalimentación:</span>
-                <p>{currentExercise.explanation}</p>
+                <p>{selectedFeedback}</p>
               </div>
             )}
           </div>

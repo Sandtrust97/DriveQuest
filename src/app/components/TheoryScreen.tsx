@@ -13,55 +13,7 @@ import {
   ChevronRight,
   Sparkles
 } from "lucide-react";
-
-interface TheoryModule {
-  id: number;
-  category: "senales" | "normas" | "seguridad";
-  title: string;
-  description: string;
-  readTime: string;
-  content: string;
-  isCompleted: boolean;
-}
-
-const THEORY_MODULES: TheoryModule[] = [
-  {
-    id: 1,
-    category: "senales",
-    title: "Señales Reglamentarias",
-    description: "Indican limitaciones, prohibiciones o restricciones en la vía. Su violación constituye una infracción.",
-    readTime: "5 min",
-    content: "Las señales reglamentarias tienen forma circular con borde rojo y fondo blanco (a excepción del PARE que es octagonal y CEDA EL PASO que es un triángulo invertido). Ejemplos clave incluyen prohibición de giro, límite de velocidad y sentido obligatorio.",
-    isCompleted: true,
-  },
-  {
-    id: 2,
-    category: "senales",
-    title: "Señales Preventivas",
-    description: "Advierten sobre la existencia de un peligro o condición inesperada en la vía.",
-    readTime: "4 min",
-    content: "Tienen forma de rombo, fondo amarillo y símbolos negros. Alertan sobre curvas peligrosas, reducciones de calzada, zonas escolares y pendientes pronunciadas.",
-    isCompleted: true,
-  },
-  {
-    id: 3,
-    category: "normas",
-    title: "Límites de Velocidad y Distancias",
-    description: "Normativa sobre velocidades máximas en zonas urbanas, carreteras y reglas de separación entre vehículos.",
-    readTime: "7 min",
-    content: "En zonas urbanas residenciales y escolares el límite máximo habitual es de 30 km/h. En avenidas principales puede ser hasta 50 km/h o 60 km/h según la señalización. La distancia de seguimiento debe ajustarse respetando la regla de los 3 segundos.",
-    isCompleted: false,
-  },
-  {
-    id: 4,
-    category: "seguridad",
-    title: "Elementos de Seguridad Activa y Pasiva",
-    description: "Sistemas del vehículo orientados a prevenir accidentes o mitigar las consecuencias de un impacto.",
-    readTime: "6 min",
-    content: "La seguridad activa abarca frenos ABS, control de estabilidad (ESP) y neumáticos. La seguridad pasiva incluye cinturones de seguridad, airbags y la estructura de deformación programada del chasis.",
-    isCompleted: false,
-  },
-];
+import { THEORY_MODULES, type TheoryModule } from "../data/theoryModules";
 
 interface TheoryScreenProps {
   onNavigate?: (screen: string) => void;

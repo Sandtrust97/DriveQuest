@@ -1,12 +1,37 @@
 import { create } from "zustand";
 import { supabase } from '../Lib/supabase';
 import { User } from '@supabase/supabase-js';
+import { PRACTICE_CASES } from '../data/practiceCases';
+
+/**
+ * Detalle del resultado del examen teórico según la norma oficial ANSV
+ * (Resolución No. 20253040037125): 40 preguntas (12 de actitudes y 28 de
+ * conocimientos), con aprobación únicamente al obtener ≥80% en conocimientos
+ * Y ≥80% en actitudes.
+ */
+export interface ExamResultDetails {
+  knowledgeScore: number;
+  knowledgeTotal: number;
+  attitudesScore: number;
+  attitudesTotal: number;
+  knowledgePercentage: number;
+  attitudesPercentage: number;
+  passed: boolean;
+}
 
 export interface ExamRecord {
   date: string;
   score: number;
   total: number;
   percentage: number;
+  knowledgeScore?: number;
+  knowledgeTotal?: number;
+  attitudesScore?: number;
+  attitudesTotal?: number;
+  knowledgePercentage?: number;
+  attitudesPercentage?: number;
+  /** Aprobación según regla oficial: ≥80% en conocimientos Y ≥80% en actitudes. */
+  passed?: boolean;
 }
 
 export interface StoredProgress {
@@ -39,9 +64,9 @@ export interface AppState {
   completedPracticeIds: number[];
   markPracticeCompleted: (id: number) => void;
 
-  // Historial de Exámenes
+  // Historial de Exámenes (40 preguntas: 12 actitudes + 28 conocimientos, regla ANSV)
   examHistory: ExamRecord[];
-  addExamResult: (score: number, total: number) => void;
+  addExamResult: (score: number, total: number, details?: ExamResultDetails) => void;
 
   // Métricas de Estudio
   studyTimeMinutes: number;
@@ -57,8 +82,8 @@ export interface AppState {
   getFormattedStudyTime: () => string;
 }
 
-const TOTAL_THEORY_MODULES = 4;
-const TOTAL_PRACTICE_CASES = 5;
+const TOTAL_THEORY_MODULES = 41;
+const TOTAL_PRACTICE_CASES = PRACTICE_CASES.length;
 
 // Helpers de LocalStorage asociando datos al ID único del usuario
 const getStorageKey = (userId: string) => `drivequest_progress_${userId}`;
@@ -233,13 +258,14 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
   // Historial de Exámenes
   examHistory: [],
-  addExamResult: (score, total) => {
+  addExamResult: (score, total, details) => {
     const percentage = Math.round((score / total) * 100);
-    const newRecord = {
+    const newRecord: ExamRecord = {
       date: new Date().toISOString().split("T")[0],
       score,
       total,
       percentage,
+      ...(details ?? {}),
     };
 
     set((state) => {
@@ -297,7 +323,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
   getPassedExamsCount: () => {
     const { examHistory } = get();
-    return examHistory.filter(e => e.percentage >= 80).length;
+    // Regla oficial ANSV: el examen se aprueba únicamente con ≥80% en
+    // conocimientos Y ≥80% en actitudes (respaldo histórico: ≥80% general).
+    return examHistory.filter((e) => e.passed ?? e.percentage >= 80).length;
   },
 
   getFormattedStudyTime: () => {
