@@ -1,5 +1,5 @@
 import { useAppStore } from "../store/useAppStore";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
@@ -10,8 +10,7 @@ import {
   ShieldAlert, 
   Compass, 
   AlertTriangle, 
-  ChevronRight,
-  Sparkles
+  ChevronRight
 } from "lucide-react";
 import { THEORY_MODULES, type TheoryModule } from "../data/theoryModules";
 
@@ -24,6 +23,19 @@ export function TheoryScreen({ onNavigate }: TheoryScreenProps) {
 
   const [activeTab, setActiveTab] = useState<"todas" | "senales" | "normas" | "seguridad">("todas");
   const [selectedModule, setSelectedModule] = useState<TheoryModule | null>(null);
+
+  // El botón físico "atrás" de Android primero cierra la lectura del módulo.
+  useEffect(() => {
+    const handleHardwareBack = (event: Event) => {
+      if (!selectedModule) return;
+      event.preventDefault();
+      setSelectedModule(null);
+    };
+
+    window.addEventListener("drivequest:hardware-back", handleHardwareBack);
+    return () => window.removeEventListener("drivequest:hardware-back", handleHardwareBack);
+  }, [selectedModule]);
+
  // ✅ REEMPLAZA EL ESTADO LOCAL DE COMPLETEDIDS POR ZUSTAND:
   const completedIds = useAppStore((state) => state.completedModuleIds);
   const markModuleCompleted = useAppStore((state) => state.markModuleCompleted);
@@ -76,11 +88,11 @@ export function TheoryScreen({ onNavigate }: TheoryScreenProps) {
               {selectedModule.title}
             </h3>
 
-            <p className="text-sm text-slate-500 italic border-l-2 border-blue-500 pl-3 py-1">
+            <p className="text-sm text-slate-500 italic border-l-2 border-blue-500 pl-3 py-1 text-justify">
               {selectedModule.description}
             </p>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm text-sm text-slate-700 leading-relaxed space-y-3">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm text-sm text-slate-700 leading-relaxed space-y-3 text-justify">
               <p>{selectedModule.content}</p>
             </div>
           </div>
@@ -106,7 +118,7 @@ export function TheoryScreen({ onNavigate }: TheoryScreenProps) {
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
             <div className="flex justify-between items-center text-xs font-semibold text-slate-500">
               <span className="flex items-center gap-1.5 text-blue-600">
-                <Sparkles className="w-4 h-4" /> Avance de Lecciones
+                <BookOpen className="w-4 h-4" /> Avance de Lecciones
               </span>
               <span>{completedIds.length} de {THEORY_MODULES.length} Completadas</span>
             </div>

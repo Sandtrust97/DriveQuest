@@ -22,6 +22,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   // Conectar con Zustand (datos y función de logout)
   const userName = useAppStore((state) => state.userName);
+  const userAvatar = useAppStore((state) => state.userAvatar);
   const logout = useAppStore((state) => state.logout);
   const getOverallProgress = useAppStore((state) => state.getOverallProgress);
   const overallProgress = getOverallProgress();
@@ -43,9 +44,17 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       <div className="bg-blue-600 text-white p-6 rounded-b-3xl shadow-md">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center border border-white/30">
-              <User className="w-6 h-6 text-white" />
-            </div>
+            {userAvatar ? (
+              <img
+                src={userAvatar}
+                alt={`Foto de perfil de ${userName}`}
+                className="rounded-full object-cover w-12 h-12 border-2 border-white/20"
+              />
+            ) : (
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center border border-white/30">
+                <User className="w-6 h-6 text-white" />
+              </div>
+            )}
             <div>
               <p className="text-xs text-blue-100">Bienvenido de nuevo</p>
               <h2 className="text-xl font-bold">{userName}</h2>

@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
-import { CarFront, ArrowRight, Sparkles, LogIn } from "lucide-react";
+import { ArrowRight, LogIn } from "lucide-react";
+import logoImg from "../../assets/Logo.png";
 
 interface WelcomeScreenProps {
   onNavigate?: (screen: string) => void;
@@ -20,24 +21,18 @@ export function WelcomeScreen({ onNavigate }: WelcomeScreenProps) {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-800 justify-between p-6 max-w-md mx-auto">
+    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-800 justify-between px-6 pt-4 pb-6 max-w-md mx-auto">
       {/* Contenido Superior: Logo e Identidad */}
-      <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6 pt-12">
-        {/* Ícono de DriveQuest */}
-        <div className="relative">
-          <div className="w-24 h-24 bg-blue-600 rounded-3xl flex items-center justify-center shadow-lg shadow-blue-500/30 transform hover:scale-105 transition-all">
-            <CarFront className="w-12 h-12 text-white animate-pulse" />
-          </div>
-          <div className="absolute -top-2 -right-2 bg-amber-400 p-1.5 rounded-full border-2 border-slate-50 shadow-sm">
-            <Sparkles className="w-4 h-4 text-slate-900" />
-          </div>
-        </div>
+      <div className="flex-1 flex flex-col items-center justify-center text-center">
+        {/* Logo de DriveQuest (incluye el nombre de la marca) */}
+        <img
+          src={logoImg}
+          alt="Logo de DriveQuest"
+          className="w-80 h-80 max-w-full object-contain drop-shadow-lg mb-3"
+        />
 
-        {/* Título y Descripción */}
+        {/* Descripción */}
         <div className="space-y-3 px-2">
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            DriveQuest
-          </h1>
           <p className="text-slate-500 text-base leading-relaxed max-w-xs mx-auto">
             Aprende las normas de tránsito, practica exámenes y obtén tu licencia de conducción a tu ritmo.
           </p>
@@ -45,7 +40,7 @@ export function WelcomeScreen({ onNavigate }: WelcomeScreenProps) {
       </div>
 
       {/* Acciones de Selección: Registro e Inicio de Sesión */}
-      <div className="space-y-3 pb-6 w-full">
+      <div className="space-y-3 w-full">
         <Button
           onClick={handleRegister}
           className="w-full py-7 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-2xl text-lg shadow-lg shadow-blue-600/25 flex items-center justify-center gap-3 transition-all active:scale-[0.98]"

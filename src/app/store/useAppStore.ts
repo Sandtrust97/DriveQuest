@@ -42,6 +42,11 @@ export interface StoredProgress {
   questionsAnsweredCount: number;
 }
 
+export interface ReminderSettings {
+  enabled: boolean;
+  time: string;
+}
+
 export interface AppState {
   // Autenticación de Supabase
   user: User | null;
@@ -54,7 +59,14 @@ export interface AppState {
   // Datos del estudiante
   userName: string;
   userEmail: string;
+  userAvatar: string | null;
   setUserData: (name: string, email: string) => void;
+  setUserAvatar: (avatar: string | null) => void;
+
+  // Preferencias de recordatorios
+  reminderEnabled: boolean;
+  reminderTime: string;
+  setReminderSettings: (enabled: boolean, time: string) => void;
 
   // Progreso Teórico
   completedModuleIds: number[];
@@ -107,6 +119,51 @@ const saveUserProgress = (userId: string | undefined, data: StoredProgress) => {
   }
 };
 
+// Helpers de LocalStorage para la foto de perfil
+export const getUserAvatarStorageKey = (userId: string) => `drivequest_avatar_${userId}`;
+
+const loadUserAvatar = (userId: string): string | null => {
+  try {
+    return localStorage.getItem(getUserAvatarStorageKey(userId));
+  } catch (error) {
+    console.error("Error al cargar la foto de perfil:", error);
+    return null;
+  }
+};
+
+// Helpers de LocalStorage para los recordatorios diarios
+const REMINDER_STORAGE_KEY = "drivequest_reminder_settings";
+const DEFAULT_REMINDER_TIME = "19:00";
+
+const loadReminderSettings = (): ReminderSettings => {
+  try {
+    const saved = localStorage.getItem(REMINDER_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved) as Partial<ReminderSettings>;
+      return {
+        enabled: Boolean(parsed?.enabled),
+        time:
+          typeof parsed?.time === "string" && /^\d{2}:\d{2}$/.test(parsed.time)
+            ? parsed.time
+            : DEFAULT_REMINDER_TIME,
+      };
+    }
+  } catch (error) {
+    console.error("Error al cargar los recordatorios:", error);
+  }
+  return { enabled: false, time: DEFAULT_REMINDER_TIME };
+};
+
+const saveReminderSettings = (settings: ReminderSettings) => {
+  try {
+    localStorage.setItem(REMINDER_STORAGE_KEY, JSON.stringify(settings));
+  } catch (error) {
+    console.error("Error al guardar los recordatorios:", error);
+  }
+};
+
+const initialReminderSettings = loadReminderSettings();
+
 // Sintaxis estricta de Zustand
 export const useAppStore = create<AppState>()((set, get) => ({
   user: null,
@@ -123,11 +180,13 @@ export const useAppStore = create<AppState>()((set, get) => ({
         || "Estudiante DriveQuest";
 
       const savedProgress = currentUser ? loadUserProgress(currentUser.id) : null;
+      const savedAvatar = currentUser ? loadUserAvatar(currentUser.id) : null;
 
       set({ 
         user: currentUser,
         userName: name,
         userEmail: currentUser?.email || "usuario@drivequest.app",
+        userAvatar: savedAvatar,
         completedModuleIds: savedProgress?.completedModuleIds || [],
         completedPracticeIds: savedProgress?.completedPracticeIds || [],
         examHistory: savedProgress?.examHistory || [],
@@ -153,6 +212,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         user: data.user,
         userName: name,
         userEmail: data.user.email || email,
+        userAvatar: null,
         completedModuleIds: [],
         completedPracticeIds: [],
         examHistory: [],
@@ -171,11 +231,13 @@ export const useAppStore = create<AppState>()((set, get) => ({
     if (!error && data?.user) {
       const name = data.user.user_metadata?.full_name || email.split('@')[0];
       const savedProgress = loadUserProgress(data.user.id);
+      const savedAvatar = loadUserAvatar(data.user.id);
 
       set({ 
         user: data.user,
         userName: name,
         userEmail: data.user.email || email,
+        userAvatar: savedAvatar,
         completedModuleIds: savedProgress?.completedModuleIds || [],
         completedPracticeIds: savedProgress?.completedPracticeIds || [],
         examHistory: savedProgress?.examHistory || [],
@@ -192,6 +254,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       user: null, 
       userName: "Estudiante DriveQuest", 
       userEmail: "usuario@drivequest.app",
+      userAvatar: null,
       completedModuleIds: [],
       completedPracticeIds: [],
       examHistory: [],
@@ -203,8 +266,34 @@ export const useAppStore = create<AppState>()((set, get) => ({
   // Datos de usuario
   userName: "Estudiante DriveQuest",
   userEmail: "usuario@drivequest.app",
+  userAvatar: null,
 
   setUserData: (name, email) => set({ userName: name, userEmail: email }),
+
+  setUserAvatar: (avatar) => {
+    const userId = get().user?.id;
+    if (userId) {
+      try {
+        if (avatar) {
+          localStorage.setItem(getUserAvatarStorageKey(userId), avatar);
+        } else {
+          localStorage.removeItem(getUserAvatarStorageKey(userId));
+        }
+      } catch (error) {
+        console.error("Error al guardar la foto de perfil:", error);
+      }
+    }
+    set({ userAvatar: avatar });
+  },
+
+  // Preferencias de recordatorios (persistidas en el dispositivo)
+  reminderEnabled: initialReminderSettings.enabled,
+  reminderTime: initialReminderSettings.time,
+
+  setReminderSettings: (enabled, time) => {
+    saveReminderSettings({ enabled, time });
+    set({ reminderEnabled: enabled, reminderTime: time });
+  },
 
   // Módulos Teóricos
   completedModuleIds: [],
